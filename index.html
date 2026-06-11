@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Segnalazione Veicolo</title>
+<style>
+  body { font-family: -apple-system, Roboto, Arial, sans-serif; text-align:center;
+         padding:40px 20px; color:#222; }
+  .bus { font-size:48px; font-weight:bold; margin:10px 0; }
+  .ts  { color:#666; margin-bottom:30px; }
+  a.btn { display:block; max-width:320px; margin:12px auto; padding:16px;
+          border-radius:12px; text-decoration:none; color:#fff; font-size:18px; }
+  .wa { background:#25D366; } .mail { background:#1a73e8; }
+</style>
+</head>
+<body>
+  <div>Veicolo sociale</div>
+  <div class="bus" id="bus">—</div>
+  <div class="ts" id="ts"></div>
+
+  <a class="btn wa"   id="waBtn"   href="#">📲 Invia con WhatsApp</a>
+  <a class="btn mail" id="mailBtn" href="#">✉️ Invia con Email</a>
+
+<script>
+  // ---- CONFIGURAZIONE FISSA ----
+  const EMAIL = "g.vasta@fsbusitalia.it";
+  const WHATSAPP = "393451004404";   // prefisso 39, senza + e senza spazi
+  // -------------------------------
+
+  // numero veicolo dal QR: ...bus-report.html?n=99999
+  const params = new URLSearchParams(location.search);
+  const bus = params.get("n") || "sconosciuto";
+
+  // timestamp REALE del momento della scansione
+  const now = new Date();
+  const ts = now.toLocaleString("it-IT", {
+    day:"2-digit", month:"2-digit", year:"numeric",
+    hour:"2-digit", minute:"2-digit", second:"2-digit"
+  });
+
+  document.getElementById("bus").textContent = bus;
+  document.getElementById("ts").textContent = "Rilevato il " + ts;
+
+  const msg = `Veicolo sociale: ${bus}\nData/ora: ${ts}`;
+
+  document.getElementById("waBtn").href =
+    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+
+  document.getElementById("mailBtn").href =
+    `mailto:${EMAIL}?subject=${encodeURIComponent("Segnalazione Bus " + bus)}`
+    + `&body=${encodeURIComponent(msg)}`;
+
+  // Se vuoi l'apertura AUTOMATICA di WhatsApp senza far scegliere, scommenta:
+  // location.href = document.getElementById("waBtn").href;
+</script>
+</body>
+</html>
