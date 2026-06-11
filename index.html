@@ -6,33 +6,34 @@
 <title>Segnalazione Veicolo</title>
 <style>
   body { font-family: -apple-system, Roboto, Arial, sans-serif; text-align:center;
-         padding:40px 20px; color:#222; }
-  .bus { font-size:48px; font-weight:bold; margin:10px 0; }
-  .ts  { color:#666; margin-bottom:30px; }
+         padding:36px 20px; color:#222; }
+  .bus { font-size:48px; font-weight:bold; margin:8px 0; }
+  .ts  { color:#666; margin-bottom:6px; }
+  .geo { color:#888; font-size:14px; min-height:20px; margin-bottom:26px; }
   a.btn { display:block; max-width:320px; margin:12px auto; padding:16px;
           border-radius:12px; text-decoration:none; color:#fff; font-size:18px; }
   .wa { background:#25D366; } .mail { background:#1a73e8; }
+  a.disabled { opacity:.55; pointer-events:none; }
 </style>
 </head>
 <body>
   <div>Veicolo sociale</div>
   <div class="bus" id="bus">—</div>
-  <div class="ts" id="ts"></div>
+  <div class="ts"  id="ts"></div>
+  <div class="geo" id="geo">📍 Rilevamento posizione…</div>
 
   <a class="btn wa"   id="waBtn"   href="#">📲 Invia con WhatsApp</a>
   <a class="btn mail" id="mailBtn" href="#">✉️ Invia con Email</a>
 
 <script>
   // ---- CONFIGURAZIONE FISSA ----
-  const EMAIL = "g.vasta@fsbusitalia.it";
+  const EMAIL    = "g.vasta@fsbusitalia.it";
   const WHATSAPP = "393451004404";   // prefisso 39, senza + e senza spazi
   // -------------------------------
 
-  // numero veicolo dal QR: ...bus-report.html?n=99999
   const params = new URLSearchParams(location.search);
   const bus = params.get("n") || "sconosciuto";
 
-  // timestamp REALE del momento della scansione
   const now = new Date();
   const ts = now.toLocaleString("it-IT", {
     day:"2-digit", month:"2-digit", year:"numeric",
@@ -40,19 +41,65 @@
   });
 
   document.getElementById("bus").textContent = bus;
-  document.getElementById("ts").textContent = "Rilevato il " + ts;
+  document.getElementById("ts").textContent  = "Rilevato il " + ts;
 
-  const msg = `Veicolo sociale: ${bus}\nData/ora: ${ts}`;
+  // posizione: viene riempita in modo asincrono
+  let posLine = "";  // riga da aggiungere al messaggio
 
-  document.getElementById("waBtn").href =
-    `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+  function buildMessage() {
+    let m = `Veicolo sociale: ${bus}\nData/ora: ${ts}`;
+    if (posLine) m += "\n" + posLine;
+    return m;
+  }
 
-  document.getElementById("mailBtn").href =
-    `mailto:${EMAIL}?subject=${encodeURIComponent("Segnalazione Bus " + bus)}`
-    + `&body=${encodeURIComponent(msg)}`;
+  function updateLinks() {
+    const msg = buildMessage();
+    document.getElementById("waBtn").href =
+      `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+    document.getElementById("mailBtn").href =
+      `mailto:${EMAIL}?subject=${encodeURIComponent("Segnalazione Bus " + bus)}`
+      + `&body=${encodeURIComponent(msg)}`;
+  }
 
-  // Se vuoi l'apertura AUTOMATICA di WhatsApp senza far scegliere, scommenta:
-  // location.href = document.getElementById("waBtn").href;
+  // link inizialmente "in attesa" del GPS
+  const wa   = document.getElementById("waBtn");
+  const mail = document.getElementById("mailBtn");
+  wa.classList.add("disabled");
+  mail.classList.add("disabled");
+  updateLinks();
+
+  function enableButtons() {
+    wa.classList.remove("disabled");
+    mail.classList.remove("disabled");
+  }
+
+  if ("geolocation" in navigator) {
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        const lat = p.coords.latitude.toFixed(6);
+        const lon = p.coords.longitude.toFixed(6);
+        const acc = Math.round(p.coords.accuracy);
+        const maps = `https://maps.google.com/?q=${lat},${lon}`;
+        posLine = `Posizione: ${lat}, ${lon} (±${acc} m)\nMappa: ${maps}`;
+        document.getElementById("geo").innerHTML =
+          `📍 <a href="${maps}" target="_blank">${lat}, ${lon}</a> (±${acc} m)`;
+        updateLinks();
+        enableButtons();
+      },
+      (err) => {
+        posLine = "Posizione: non disponibile";
+        document.getElementById("geo").textContent = "📍 Posizione non disponibile";
+        updateLinks();
+        enableButtons();   // si invia comunque, senza coordinate
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  } else {
+    posLine = "Posizione: non supportata dal dispositivo";
+    document.getElementById("geo").textContent = "📍 Geolocalizzazione non supportata";
+    updateLinks();
+    enableButtons();
+  }
 </script>
 </body>
 </html>
