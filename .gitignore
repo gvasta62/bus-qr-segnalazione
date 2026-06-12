@@ -1,0 +1,8 @@
+# SICUREZZA: ignora TUTTO per default.
+# In questa cartella vivono dati personali (registro segnalazioni, anagrafica,
+# email/telefoni autisti, config con credenziali): NON devono finire su GitHub.
+/*
+
+# Uniche eccezioni pubblicabili: la pagina web e questo file.
+!index.html
+!.gitignore
