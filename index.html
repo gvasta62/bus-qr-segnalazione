@@ -9,11 +9,20 @@
          padding:36px 20px; color:#222; }
   .bus { font-size:48px; font-weight:bold; margin:8px 0; }
   .ts  { color:#666; margin-bottom:6px; }
-  .geo { color:#888; font-size:14px; min-height:20px; margin-bottom:26px; }
+  .geo { color:#888; font-size:14px; min-height:20px; margin-bottom:20px; }
+  .cidbox { max-width:320px; margin:0 auto 8px; text-align:left; }
+  .cidbox label { font-size:14px; color:#444; display:block; margin-bottom:4px; }
+  #cid { width:100%; box-sizing:border-box; padding:14px; font-size:22px;
+         text-align:center; letter-spacing:4px; border:2px solid #ccc;
+         border-radius:12px; }
+  #cid.ok  { border-color:#25D366; }
+  #cid.bad { border-color:#e24b4a; }
+  .hint { font-size:13px; min-height:18px; margin:6px auto 22px; max-width:320px; }
+  .hint.err { color:#c0392b; } .hint.ok { color:#1e8e4e; }
   a.btn { display:block; max-width:320px; margin:12px auto; padding:16px;
           border-radius:12px; text-decoration:none; color:#fff; font-size:18px; }
   .wa { background:#25D366; } .mail { background:#1a73e8; }
-  a.disabled { opacity:.55; pointer-events:none; }
+  a.disabled { opacity:.45; pointer-events:none; }
 </style>
 </head>
 <body>
@@ -22,8 +31,15 @@
   <div class="ts"  id="ts"></div>
   <div class="geo" id="geo">📍 Rilevamento posizione…</div>
 
-  <a class="btn wa"   id="waBtn"   href="#">📲 Invia con WhatsApp</a>
-  <a class="btn mail" id="mailBtn" href="#">✉️ Invia con Email</a>
+  <div class="cidbox">
+    <label for="cid">Codice matricola CID (7 cifre)</label>
+    <input id="cid" inputmode="numeric" maxlength="7" autocomplete="off"
+           placeholder="0000000" aria-describedby="hint">
+  </div>
+  <div class="hint err" id="hint">Inserisci il CID per abilitare l’invio</div>
+
+  <a class="btn wa   disabled" id="waBtn"   href="#">📲 Invia con WhatsApp</a>
+  <a class="btn mail disabled" id="mailBtn" href="#">✉️ Invia con Email</a>
 
 <script>
   // ---- CONFIGURAZIONE FISSA ----
@@ -43,35 +59,62 @@
   document.getElementById("bus").textContent = bus;
   document.getElementById("ts").textContent  = "Rilevato il " + ts;
 
-  // posizione: viene riempita in modo asincrono
-  let posLine = "";  // riga da aggiungere al messaggio
+  let posLine = "";   // riga posizione, riempita in modo asincrono
+  let geoReady = false;
+  let cid = "";
+
+  const cidInput = document.getElementById("cid");
+  const hint = document.getElementById("hint");
+  const wa   = document.getElementById("waBtn");
+  const mail = document.getElementById("mailBtn");
 
   function buildMessage() {
-    let m = `Veicolo sociale: ${bus}\nData/ora: ${ts}`;
+    let m = `Veicolo sociale: ${bus}\nCID:${cid}\nData/ora: ${ts}`;
     if (posLine) m += "\n" + posLine;
     return m;
   }
 
   function updateLinks() {
     const msg = buildMessage();
-    document.getElementById("waBtn").href =
-      `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
-    document.getElementById("mailBtn").href =
-      `mailto:${EMAIL}?subject=${encodeURIComponent("Segnalazione Bus " + bus)}`
-      + `&body=${encodeURIComponent(msg)}`;
+    wa.href   = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
+    mail.href = `mailto:${EMAIL}?subject=${encodeURIComponent("Segnalazione Bus " + bus)}`
+              + `&body=${encodeURIComponent(msg)}`;
   }
 
-  // link inizialmente "in attesa" del GPS
-  const wa   = document.getElementById("waBtn");
-  const mail = document.getElementById("mailBtn");
-  wa.classList.add("disabled");
-  mail.classList.add("disabled");
-  updateLinks();
+  function refreshState() {
+    const cidOk = /^\d{7}$/.test(cid);
+    cidInput.classList.toggle("ok",  cidOk);
+    cidInput.classList.toggle("bad", cid.length > 0 && !cidOk);
 
-  function enableButtons() {
-    wa.classList.remove("disabled");
-    mail.classList.remove("disabled");
+    if (!cidOk) {
+      hint.className = "hint err";
+      hint.textContent = cid.length === 0
+        ? "Inserisci il CID per abilitare l’invio"
+        : `CID incompleto: ${cid.length}/7 cifre`;
+    } else if (!geoReady) {
+      hint.className = "hint";
+      hint.textContent = "Rilevamento posizione in corso…";
+    } else {
+      hint.className = "hint ok";
+      hint.textContent = "Pronto per l’invio";
+    }
+
+    const enabled = cidOk && geoReady;
+    wa.classList.toggle("disabled",   !enabled);
+    mail.classList.toggle("disabled", !enabled);
+    if (cidOk) updateLinks();
   }
+
+  cidInput.addEventListener("input", () => {
+    cid = cidInput.value.replace(/\D/g, "").slice(0, 7);
+    cidInput.value = cid;
+    refreshState();
+  });
+
+  // blocco extra: se per qualunque motivo il link è disabilitato, niente invio
+  [wa, mail].forEach(el => el.addEventListener("click", (e) => {
+    if (el.classList.contains("disabled")) { e.preventDefault(); cidInput.focus(); }
+  }));
 
   if ("geolocation" in navigator) {
     navigator.geolocation.getCurrentPosition(
@@ -83,23 +126,25 @@
         posLine = `Posizione: ${lat}, ${lon} (±${acc} m)\nMappa: ${maps}`;
         document.getElementById("geo").innerHTML =
           `📍 <a href="${maps}" target="_blank">${lat}, ${lon}</a> (±${acc} m)`;
-        updateLinks();
-        enableButtons();
+        geoReady = true;
+        refreshState();
       },
       (err) => {
         posLine = "Posizione: non disponibile";
         document.getElementById("geo").textContent = "📍 Posizione non disponibile";
-        updateLinks();
-        enableButtons();   // si invia comunque, senza coordinate
+        geoReady = true;   // si invia comunque, senza coordinate
+        refreshState();
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   } else {
     posLine = "Posizione: non supportata dal dispositivo";
     document.getElementById("geo").textContent = "📍 Geolocalizzazione non supportata";
-    updateLinks();
-    enableButtons();
+    geoReady = true;
+    refreshState();
   }
+
+  refreshState();
 </script>
 </body>
 </html>
