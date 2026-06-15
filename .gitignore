@@ -3,6 +3,7 @@
 # email/telefoni autisti, config con credenziali): NON devono finire su GitHub.
 /*
 
-# Uniche eccezioni pubblicabili: la pagina web e questo file.
+# Uniche eccezioni pubblicabili: la pagina web, il README e questo file.
 !index.html
 !.gitignore
+!README.md
